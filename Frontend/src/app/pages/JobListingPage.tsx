@@ -3,13 +3,13 @@ import { Link, useSearchParams } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { MapPin, Search } from "lucide-react";
-import { Job, jobsApi } from "../services/api";
+import { GET_JOBS, graphqlRequest } from "../services/graphql";
 
-const salary = (job: Job) => {
-  if (!job.salary_min && !job.salary_max) return "Tidak ditampilkan";
+const salary = (job: any) => {
+  if (!job.salaryMin && !job.salaryMax) return "Tidak ditampilkan";
 
-  return `Rp${Number(job.salary_min || 0).toLocaleString("id-ID")} - Rp${Number(
-    job.salary_max || 0
+  return `Rp${Number(job.salaryMin || 0).toLocaleString("id-ID")} - Rp${Number(
+    job.salaryMax || 0
   ).toLocaleString("id-ID")}`;
 };
 
@@ -18,7 +18,7 @@ export default function JobListingPage() {
 
   const keywordFromUrl = searchParams.get("keyword") || "";
 
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [query, setQuery] = useState(keywordFromUrl);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,11 +28,11 @@ export default function JobListingPage() {
       setLoading(true);
       setError("");
 
-      const data = await jobsApi.searchJobs({
+      const result = await graphqlRequest<any>(GET_JOBS, {
         keyword: keyword?.trim() || undefined,
       });
 
-      setJobs(data);
+      setJobs(result.jobs || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat lowongan");
     } finally {
@@ -124,8 +124,8 @@ export default function JobListingPage() {
               >
                 <div className="flex justify-between gap-4 mb-4">
                   <div>
-                    <h2 className="text-xl font-bold mb-1">{job.job_title}</h2>
-                    <p className="text-muted-foreground">{job.company_name}</p>
+                    <h2 className="text-xl font-bold mb-1">{job.jobTitle}</h2>
+                    <p className="text-muted-foreground">{job.companyName}</p>
                   </div>
 
                   <span className="text-3xl">💼</span>
@@ -141,12 +141,12 @@ export default function JobListingPage() {
                 </p>
 
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {job.required_skills?.map((skill) => (
+                  {job.requiredSkills?.map((skill: any) => (
                     <span
                       key={skill.id}
                       className="px-3 py-1 rounded-full bg-gray-100 text-sm"
                     >
-                      {skill.skill_name}
+                      {skill.skillName}
                     </span>
                   ))}
                 </div>

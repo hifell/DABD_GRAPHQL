@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { User, LogOut } from "lucide-react";
-import { authApi, clearAuth, getDashboardPath, isLoggedIn, UserMe } from "../services/api";
+import { ME, clearAuth, getDashboardPath, isLoggedIn, graphqlRequest } from "../services/graphql";
+import type { MeResponse, UserType } from "../services/graphql";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const [me, setMe] = useState<UserMe | null>(null);
+  const [me, setMe] = useState<UserType | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn()) return;
-    authApi.me().then(setMe).catch(() => {
+    graphqlRequest<MeResponse>(ME).then(res => setMe(res.me)).catch(() => {
       clearAuth();
       setMe(null);
     });
@@ -35,15 +36,15 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-8">
             <Link to="/" className="text-foreground hover:text-[var(--coral)] transition-colors">Home</Link>
             <Link to="/lowongan" className="text-foreground hover:text-[var(--coral)] transition-colors">Lowongan</Link>
-            {me?.role === "company" && <Link to="/perusahaan/dashboard" className="text-foreground hover:text-[var(--coral)] transition-colors">Dashboard Perusahaan</Link>}
-            {me?.role === "user" && <Link to="/pelamar/dashboard" className="text-foreground hover:text-[var(--coral)] transition-colors">Dashboard Pelamar</Link>}
+            {me?.role === "COMPANY" && <Link to="/perusahaan/dashboard" className="text-foreground hover:text-[var(--coral)] transition-colors">Dashboard Perusahaan</Link>}
+            {me?.role === "USER" && <Link to="/pelamar/dashboard" className="text-foreground hover:text-[var(--coral)] transition-colors">Dashboard Pelamar</Link>}
           </div>
 
           {me ? (
             <div className="flex items-center gap-3">
               <button onClick={() => navigate(getDashboardPath(me.role))} className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl bg-[var(--input-background)] hover:bg-gray-100">
                 <User className="w-4 h-4" />
-                <span className="font-medium max-w-40 truncate">{me.full_name}</span>
+                <span className="font-medium max-w-40 truncate">{me.fullName}</span>
               </button>
               <button onClick={logout} className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-border hover:border-[var(--coral)]">
                 <LogOut className="w-4 h-4" /> Logout

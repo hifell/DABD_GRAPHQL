@@ -5,13 +5,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { adminApi, CompanyForAdmin, JobForAdmin, UserForAdmin } from "../services/api";
+import {
+  GET_PENDING_COMPANIES,
+  GET_PENDING_JOBS,
+  GET_USERS,
+  VALIDATE_COMPANY,
+  REJECT_COMPANY,
+  VALIDATE_JOB,
+  REJECT_JOB,
+  LOCK_USER,
+  UNLOCK_USER,
+  VERIFY_USER,
+  graphqlRequest,
+  graphqlMutation,
+} from "../services/graphql";
 import { toast } from "sonner";
 
 export default function AdminPage() {
-  const [pendingCompanies, setPendingCompanies] = useState<CompanyForAdmin[]>([]);
-  const [pendingJobs, setPendingJobs] = useState<JobForAdmin[]>([]);
-  const [allUsers, setAllUsers] = useState<UserForAdmin[]>([]);
+  const [pendingCompanies, setPendingCompanies] = useState<any[]>([]);
+  const [pendingJobs, setPendingJobs] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -26,8 +39,8 @@ export default function AdminPage() {
   const fetchCompanies = async () => {
     setLoadingCompanies(true);
     try {
-      const companies = await adminApi.pendingCompanies();
-      setPendingCompanies(companies);
+      const res = await graphqlRequest<any>(GET_PENDING_COMPANIES);
+      setPendingCompanies(res.pendingCompanies || []);
     } catch (error) {
       toast.error("Gagal memuat daftar perusahaan");
     } finally {
@@ -38,8 +51,8 @@ export default function AdminPage() {
   const fetchJobs = async () => {
     setLoadingJobs(true);
     try {
-      const jobs = await adminApi.pendingJobs();
-      setPendingJobs(jobs);
+      const res = await graphqlRequest<any>(GET_PENDING_JOBS);
+      setPendingJobs(res.pendingJobs || []);
     } catch (error) {
       toast.error("Gagal memuat daftar lowongan");
     } finally {
@@ -50,8 +63,8 @@ export default function AdminPage() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const users = await adminApi.listUsers();
-      setAllUsers(users);
+      const res = await graphqlRequest<any>(GET_USERS);
+      setAllUsers(res.users || []);
     } catch (error) {
       toast.error("Gagal memuat daftar user");
     } finally {
@@ -62,7 +75,7 @@ export default function AdminPage() {
   const handleValidateCompany = async (companyId: number, companyName: string) => {
     setActionLoading(`validate-company-${companyId}`);
     try {
-      await adminApi.validateCompany(companyId);
+      await graphqlMutation<any>(VALIDATE_COMPANY, { companyId });
       setPendingCompanies(pendingCompanies.filter((c) => c.id !== companyId));
       toast.success(`Perusahaan "${companyName}" berhasil divalidasi`);
     } catch (error: any) {
@@ -75,7 +88,7 @@ export default function AdminPage() {
   const handleRejectCompany = async (companyId: number, companyName: string) => {
     setActionLoading(`reject-company-${companyId}`);
     try {
-      await adminApi.rejectCompany(companyId);
+      await graphqlMutation<any>(REJECT_COMPANY, { companyId });
       setPendingCompanies(pendingCompanies.filter((c) => c.id !== companyId));
       toast.success(`Perusahaan "${companyName}" berhasil ditolak`);
     } catch (error: any) {
@@ -88,7 +101,7 @@ export default function AdminPage() {
   const handleValidateJob = async (jobId: number, jobTitle: string) => {
     setActionLoading(`validate-job-${jobId}`);
     try {
-      await adminApi.validateJob(jobId);
+      await graphqlMutation<any>(VALIDATE_JOB, { jobId });
       setPendingJobs(pendingJobs.filter((j) => j.id !== jobId));
       toast.success(`Lowongan "${jobTitle}" berhasil divalidasi`);
     } catch (error: any) {
@@ -101,7 +114,7 @@ export default function AdminPage() {
   const handleRejectJob = async (jobId: number, jobTitle: string) => {
     setActionLoading(`reject-job-${jobId}`);
     try {
-      await adminApi.rejectJob(jobId);
+      await graphqlMutation<any>(REJECT_JOB, { jobId });
       setPendingJobs(pendingJobs.filter((j) => j.id !== jobId));
       toast.success(`Lowongan "${jobTitle}" berhasil ditolak`);
     } catch (error: any) {
@@ -114,8 +127,8 @@ export default function AdminPage() {
   const handleLockUser = async (userId: number, userName: string) => {
     setActionLoading(`lock-user-${userId}`);
     try {
-      await adminApi.lockUser(userId);
-      setAllUsers(allUsers.map((u) => (u.id === userId ? { ...u, is_locked: true } : u)));
+      await graphqlMutation<any>(LOCK_USER, { userId });
+      setAllUsers(allUsers.map((u) => (u.id === userId ? { ...u, isLocked: true } : u)));
       toast.success(`Akun "${userName}" berhasil dikunci`);
     } catch (error: any) {
       toast.error(error.message || "Gagal mengunci akun");
@@ -127,8 +140,8 @@ export default function AdminPage() {
   const handleUnlockUser = async (userId: number, userName: string) => {
     setActionLoading(`unlock-user-${userId}`);
     try {
-      await adminApi.unlockUser(userId);
-      setAllUsers(allUsers.map((u) => (u.id === userId ? { ...u, is_locked: false } : u)));
+      await graphqlMutation<any>(UNLOCK_USER, { userId });
+      setAllUsers(allUsers.map((u) => (u.id === userId ? { ...u, isLocked: false } : u)));
       toast.success(`Akun "${userName}" berhasil dibuka`);
     } catch (error: any) {
       toast.error(error.message || "Gagal membuka akun");
@@ -140,8 +153,8 @@ export default function AdminPage() {
   const handleVerifyUser = async (userId: number, userName: string) => {
     setActionLoading(`verify-user-${userId}`);
     try {
-      await adminApi.verifyUser(userId);
-      setAllUsers(allUsers.map((u) => (u.id === userId ? { ...u, is_verified: true } : u)));
+      await graphqlMutation<any>(VERIFY_USER, { userId });
+      setAllUsers(allUsers.map((u) => (u.id === userId ? { ...u, isVerified: true } : u)));
       toast.success(`Akun "${userName}" berhasil diverifikasi`);
     } catch (error: any) {
       toast.error(error.message || "Gagal memverifikasi akun");
@@ -189,11 +202,11 @@ export default function AdminPage() {
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className="text-xl">{company.company_name}</CardTitle>
+                          <CardTitle className="text-xl">{company.companyName}</CardTitle>
                           <CardDescription className="mt-1">
                             <div className="text-sm">
                               <p>
-                                <strong>Pemilik:</strong> {company.owner_name} ({company.owner_email})
+                                <strong>Pemilik:</strong> {company.ownerName} ({company.ownerEmail})
                               </p>
                               <p>
                                 <strong>Alamat:</strong> {company.address}
@@ -204,8 +217,8 @@ export default function AdminPage() {
                             </div>
                           </CardDescription>
                         </div>
-                        <Badge variant={company.is_validated ? "default" : "secondary"}>
-                          {company.is_validated ? "Tervalidasi" : "Menunggu"}
+                        <Badge variant={company.isValidated ? "default" : "secondary"}>
+                          {company.isValidated ? "Tervalidasi" : "Menunggu"}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -213,7 +226,7 @@ export default function AdminPage() {
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={() => handleValidateCompany(company.id, company.company_name)}
+                        onClick={() => handleValidateCompany(company.id, company.companyName)}
                         disabled={actionLoading === `validate-company-${company.id}`}
                       >
                         {actionLoading === `validate-company-${company.id}` ? "Loading..." : "Terima"}
@@ -221,7 +234,7 @@ export default function AdminPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleRejectCompany(company.id, company.company_name)}
+                        onClick={() => handleRejectCompany(company.id, company.companyName)}
                         disabled={actionLoading === `reject-company-${company.id}`}
                       >
                         {actionLoading === `reject-company-${company.id}` ? "Loading..." : "Tolak"}
@@ -252,25 +265,25 @@ export default function AdminPage() {
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <CardTitle className="text-xl">{job.job_title}</CardTitle>
+                          <CardTitle className="text-xl">{job.jobTitle}</CardTitle>
                           <CardDescription className="mt-1 text-sm">
                             <p>
-                              <strong>Perusahaan:</strong> {job.company_name}
+                              <strong>Perusahaan:</strong> {job.companyName}
                             </p>
                             <p>
                               <strong>Lokasi:</strong> {job.location}
                             </p>
                             <p>
-                              <strong>Tipe:</strong> {job.job_type}
+                              <strong>Tipe:</strong> {job.jobType}
                             </p>
                             <p className="mt-2 line-clamp-2">
-                              <strong>Deskripsi:</strong> {job.job_description}
+                              <strong>Deskripsi:</strong> {job.jobDescription}
                             </p>
                           </CardDescription>
                         </div>
                         <div className="ml-4">
-                          <Badge variant={job.is_validated ? "default" : "secondary"}>
-                            {job.is_validated ? "Tervalidasi" : "Menunggu"}
+                          <Badge variant={job.isValidated ? "default" : "secondary"}>
+                            {job.isValidated ? "Tervalidasi" : "Menunggu"}
                           </Badge>
                         </div>
                       </div>
@@ -279,7 +292,7 @@ export default function AdminPage() {
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={() => handleValidateJob(job.id, job.job_title)}
+                        onClick={() => handleValidateJob(job.id, job.jobTitle)}
                         disabled={actionLoading === `validate-job-${job.id}`}
                       >
                         {actionLoading === `validate-job-${job.id}` ? "Loading..." : "Terima"}
@@ -287,7 +300,7 @@ export default function AdminPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleRejectJob(job.id, job.job_title)}
+                        onClick={() => handleRejectJob(job.id, job.jobTitle)}
                         disabled={actionLoading === `reject-job-${job.id}`}
                       >
                         {actionLoading === `reject-job-${job.id}` ? "Loading..." : "Tolak"}
@@ -319,7 +332,7 @@ export default function AdminPage() {
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <CardTitle className="text-lg">{user.full_name}</CardTitle>
+                            <CardTitle className="text-lg">{user.fullName}</CardTitle>
                             <CardDescription className="mt-1 text-sm">
                               <p>
                                 <strong>Email:</strong> {user.email}
@@ -330,11 +343,11 @@ export default function AdminPage() {
                             </CardDescription>
                           </div>
                           <div className="flex gap-2">
-                            <Badge variant={user.is_verified ? "default" : "secondary"}>
-                              {user.is_verified ? "Diverifikasi" : "Belum Verifikasi"}
+                            <Badge variant={user.isVerified ? "default" : "secondary"}>
+                              {user.isVerified ? "Diverifikasi" : "Belum Verifikasi"}
                             </Badge>
-                            <Badge variant={user.is_locked ? "destructive" : "outline"}>
-                              {user.is_locked ? "Dikunci" : "Aktif"}
+                            <Badge variant={user.isLocked ? "destructive" : "outline"}>
+                              {user.isLocked ? "Dikunci" : "Aktif"}
                             </Badge>
                           </div>
                         </div>
@@ -342,21 +355,21 @@ export default function AdminPage() {
                       <CardContent className="flex gap-3 justify-end pt-2">
                         {user.role !== "admin" && (
                           <>
-                            {!user.is_verified && (
+                            {!user.isVerified && (
                               <Button
                                 variant="default"
                                 size="sm"
-                                onClick={() => handleVerifyUser(user.id, user.full_name)}
+                                onClick={() => handleVerifyUser(user.id, user.fullName)}
                                 disabled={actionLoading === `verify-user-${user.id}`}
                               >
                                 {actionLoading === `verify-user-${user.id}` ? "Loading..." : "Verifikasi"}
                               </Button>
                             )}
-                            {user.is_locked ? (
+                            {user.isLocked ? (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleUnlockUser(user.id, user.full_name)}
+                                onClick={() => handleUnlockUser(user.id, user.fullName)}
                                 disabled={actionLoading === `unlock-user-${user.id}`}
                               >
                                 {actionLoading === `unlock-user-${user.id}` ? "Loading..." : "Buka Kunci"}
@@ -365,7 +378,7 @@ export default function AdminPage() {
                               <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={() => handleLockUser(user.id, user.full_name)}
+                                onClick={() => handleLockUser(user.id, user.fullName)}
                                 disabled={actionLoading === `lock-user-${user.id}`}
                               >
                                 {actionLoading === `lock-user-${user.id}` ? "Loading..." : "Kunci Akun"}

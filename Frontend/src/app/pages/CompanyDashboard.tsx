@@ -3,12 +3,12 @@ import { Link, useNavigate } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Briefcase, Clock, Eye, Plus, Users } from "lucide-react";
-import { clearAuth, Job, jobsApi } from "../services/api";
+import { GET_MY_COMPANY_JOBS, graphqlRequest, clearAuth } from "../services/graphql";
 
 export default function CompanyDashboard() {
   const navigate = useNavigate();
   const [company, setCompany] = useState<any>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -16,9 +16,9 @@ export default function CompanyDashboard() {
     setLoading(true);
     setError("");
     try {
-      const res = await jobsApi.getMyCompanyJobs();
-      setCompany(res.company);
-      setJobs(res.jobs);
+      const res = await graphqlRequest<any>(GET_MY_COMPANY_JOBS);
+      setCompany(res.myCompanyJobs.company);
+      setJobs(res.myCompanyJobs.jobs);
     } catch (err) {
       clearAuth();
       navigate("/login", { replace: true });
@@ -32,7 +32,7 @@ export default function CompanyDashboard() {
   if (loading) return <><Navbar /><div className="min-h-screen p-10">Memuat dashboard perusahaan...</div></>;
 
   const activeJobs = jobs.filter(j => j.status === "published").length;
-  const totalApplicants = jobs.reduce((sum, j) => sum + (j.total_applicants || 0), 0);
+  const totalApplicants = jobs.reduce((sum, j) => sum + (j.totalApplicants || 0), 0);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -42,13 +42,13 @@ export default function CompanyDashboard() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
               <h1 className="text-4xl font-bold mb-2">Dashboard Perusahaan</h1>
-              <p className="text-muted-foreground text-lg">Halo, <b>{company?.company_name}</b></p>
+              <p className="text-muted-foreground text-lg">Halo, <b>{company?.companyName}</b></p>
               <p className="text-sm text-muted-foreground">Data lowongan dan pelamar.</p>
             </div>
             <Link to="/perusahaan/tambah-lowongan" className="px-6 py-3 bg-[var(--coral)] text-white rounded-2xl font-semibold hover:bg-[var(--coral-light)] flex items-center gap-2"><Plus className="w-4 h-4" /> Tambah Lowongan</Link>
           </div>
 
-          {company && !company.is_validated && (
+          {company && !company.isValidated && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl px-5 py-4">
               Akun perusahaan belum divalidasi admin. Sesuai SRS, perusahaan belum bisa membuat lowongan sampai admin melakukan validasi.
             </div>
@@ -74,10 +74,10 @@ export default function CompanyDashboard() {
                   {jobs.length === 0 && <tr><td colSpan={5} className="py-6 text-muted-foreground">Belum ada lowongan.</td></tr>}
                   {jobs.map(job => (
                     <tr key={job.id} className="border-b last:border-0">
-                      <td className="py-4 font-semibold">{job.job_title}</td>
+                      <td className="py-4 font-semibold">{job.jobTitle}</td>
                       <td><span className="px-3 py-1 rounded-full bg-gray-100 text-sm">{job.status}</span></td>
-                      <td>{job.is_validated ? "Valid" : "Menunggu Admin"}</td>
-                      <td>{job.total_applicants}</td>
+                      <td>{job.isValidated ? "Valid" : "Menunggu Admin"}</td>
+                      <td>{job.totalApplicants}</td>
                       <td><Link to={`/perusahaan/lowongan/${job.id}/pelamar`} className="inline-flex items-center gap-1 text-[var(--coral)]"><Eye className="w-4 h-4" /> Kandidat</Link></td>
                     </tr>
                   ))}

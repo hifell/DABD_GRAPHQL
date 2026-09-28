@@ -11,21 +11,41 @@ if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
 # Baris perintah impormu yang sudah ada sebelumnya diletakkan setelah kode di atas
-from fastapi import FastAPI, Depends, HTTPException
-from .database import Base, engine, SessionLocal
-
-from time import sleep
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from strawberry.fastapi import GraphQLRouter
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
+from time import sleep
 from app.database import Base, engine, SessionLocal
 from app.models import User, UserRole, Skill, Company, Job, JobStatus, JobRequiredSkill, UserSkill
-from app.utils.security import hash_password
+from app.utils.security import hash_password, decode_token
 from app.routes import auth, skills, profile, jobs, applications, admin
+from app.graphql.schema import schema
+# Note: REST imports kept for reference but routes are commented out
 
 app = FastAPI(title="KerjoLe Backend API", version="1.0.0")
+
+
+# GraphQL context - extracts user from Authorization header
+async def get_context(request: Request):
+    context = {"request": request}
+    auth_header = request.headers.get("Authorization")
+
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        payload = decode_token(token)
+        if payload:
+            context["user_id"] = int(payload.get("sub"))
+            context["role"] = payload.get("role")
+
+    return context
+
+
+# GraphQL router
+graphql_app = GraphQLRouter(schema, context_getter=get_context)
+app.include_router(graphql_app, prefix="/graphql")
 
 # Melayani direktori /uploads secara statis
 import os
@@ -46,12 +66,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(skills.router)
-app.include_router(profile.router)
-app.include_router(jobs.router)
-app.include_router(applications.router)
-app.include_router(admin.router)
+# REST endpoints removed - GraphQL only
+# app.include_router(auth.router)
+# app.include_router(skills.router)
+# app.include_router(profile.router)
+# app.include_router(jobs.router)
+# app.include_router(applications.router)
+# app.include_router(admin.router)
 
 
 def init_database():

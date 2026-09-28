@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ArrowLeft, ArrowRight, CheckCircle2, Upload } from "lucide-react";
-import { authApi } from "../services/api";
+import { REGISTER_USER, LOGIN, setAuth, graphqlMutation, graphqlRequest } from "../services/graphql";
+import type { RegisterUserResponse, LoginResponse } from "../services/graphql";
 
 export default function JobSeekerRegisterPage() {
   const navigate = useNavigate();
@@ -102,19 +103,19 @@ export default function JobSeekerRegisterPage() {
     setLoading(true);
 
     try {
-      await authApi.registerUser({
-        full_name: formData.nama,
-        email: formData.email,
-        password: formData.password,
+      await graphqlMutation<RegisterUserResponse>(REGISTER_USER, {
+        input: {
+          fullName: formData.nama,
+          email: formData.email,
+          password: formData.password,
+        }
       });
 
-      const login = await authApi.login({
-        email: formData.email,
-        password: formData.password,
+      const login = await graphqlMutation<LoginResponse>(LOGIN, {
+        input: { email: formData.email, password: formData.password }
       });
 
-      sessionStorage.setItem("kerjole_token", login.access_token);
-      sessionStorage.setItem("kerjole_role", login.role);
+      setAuth(login.login.accessToken, login.login.role);
 
       alert("Registrasi berhasil!");
 

@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { LogOut, LayoutDashboard } from "lucide-react";
-import { authApi, clearAuth, UserMe } from "../services/api";
+import { ME, clearAuth, graphqlRequest } from "../services/graphql";
 import { Button } from "./ui/button";
 
 export default function AdminNavbar() {
   const navigate = useNavigate();
-  const [me, setMe] = useState<UserMe | null>(null);
+  const [me, setMe] = useState<any>(null);
 
   useEffect(() => {
-    authApi.me().then(setMe).catch(() => {
-      clearAuth();
-      navigate("/login");
-    });
+    graphqlRequest<any>(ME)
+      .then(res => setMe(res.me))
+      .catch(() => {
+        clearAuth();
+        navigate("/login");
+      });
   }, [navigate]);
 
   const logout = () => {
@@ -42,7 +44,7 @@ export default function AdminNavbar() {
           <div className="flex items-center gap-3">
             {me && (
               <div className="hidden sm:block text-right px-4 py-2 rounded-2xl bg-gradient-to-r from-[var(--coral)]/10 to-[var(--peach)]/10 border border-[var(--coral)]/20">
-                <p className="text-sm font-medium text-[var(--coral)]">{me.full_name}</p>
+                <p className="text-sm font-medium text-[var(--coral)]">{me.fullName}</p>
                 <p className="text-xs text-[var(--peach)] capitalize">{me.role}</p>
               </div>
             )}

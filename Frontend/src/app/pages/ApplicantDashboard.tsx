@@ -6,7 +6,20 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Slider } from "../components/ui/slider";
-import { profileApi, skillsApi, Skill as MasterSkill, Job, jobsApi, API_URL } from "../services/api";
+import {
+  GET_PROFILE_OVERVIEW,
+  GET_SKILLS,
+  GET_RECOMMENDED_JOBS,
+  ADD_SKILL,
+  DELETE_SKILL,
+  ADD_PROJECT,
+  DELETE_PROJECT,
+  ADD_CERTIFICATE,
+  DELETE_CERTIFICATE,
+  GET_MY_APPLICATIONS,
+  graphqlRequest,
+  graphqlMutation,
+} from "../services/graphql";
 import {
   Briefcase,
   FileText,
@@ -62,8 +75,8 @@ export default function ApplicantDashboard() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [masterSkills, setMasterSkills] = useState<MasterSkill[]>([]);
-  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
+  const [masterSkills, setMasterSkills] = useState<any[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
 
   const [newSkill, setNewSkill] = useState({ nama: "", level: 3 });
   const [skillError, setSkillError] = useState("");
@@ -98,50 +111,49 @@ export default function ApplicantDashboard() {
       setLoading(true);
       setError("");
 
-      const data = await profileApi.overview();
-      const skillMaster = await skillsApi.getSkills();
-      const recommended = await jobsApi.recommendedJobs();
+      const [profileRes, skillRes, recommendedRes] = await Promise.all([
+        graphqlRequest<any>(GET_PROFILE_OVERVIEW),
+        graphqlRequest<any>(GET_SKILLS),
+        graphqlRequest<any>(GET_RECOMMENDED_JOBS, { limit: 6 }),
+      ]);
+
+      const profile = profileRes.profileOverview;
+      const skillMaster = skillRes.skills || [];
+      const recommended = recommendedRes.recommendedJobs || [];
 
       setMasterSkills(skillMaster);
       setRecommendedJobs(recommended);
 
-      setApplications((data.applications || []) as any[]);
+      setApplications(profile.applications || []);
 
       setSkills(
-        (data.skills || []).map((s: any) => ({
+        (profile.skills || []).map((s: any) => ({
           id: s.id,
-          skill_name: s.skill_name,
+          skill_name: s.skillName,
           level: s.level,
         }))
       );
 
       setProjects(
-        (data.projects || []).map((p: any) => ({
-          id: p.id,
-          project_name: p.project_name,
+        (profile.projects || []).map((p: any, idx: number) => ({
+          id: idx + 1,
+          project_name: p.projectName,
           description: p.description,
           link: p.link || "",
-          skills: p.skill_ids
-            ? p.skill_ids
-                .map((id: number) => {
-                  const skill = skillMaster.find((s) => s.id === id);
-                  return skill ? skill.skill_name : "";
-                })
-                .filter(Boolean)
-            : [],
+          skills: [],
         }))
       );
 
       setCertificates(
-        (data.certificates || []).map((c: any) => ({
-          id: c.id,
-          certificate_name: c.certificate_name,
+        (profile.certificates || []).map((c: any, idx: number) => ({
+          id: idx + 1,
+          certificate_name: c.certificateName,
           issuer: c.issuer,
-          issue_date: c.issue_date,
+          issue_date: c.issueDate,
         }))
       );
 
-      setCvData(data.cv || null);
+      setCvData(profile.cv ? { file_path: profile.cv.filePath, uploaded_at: profile.cv.uploadedAt } : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat data profil");
     } finally {
@@ -201,7 +213,7 @@ export default function ApplicantDashboard() {
     }
 
     const selectedSkill = masterSkills.find(
-      (skill) => skill.skill_name.toLowerCase() === newSkill.nama.toLowerCase()
+      (skill) => skill.skillName.toLowerCase() === newSkill.nama.toLowerCase()
     );
 
     if (!selectedSkill) {
@@ -210,17 +222,16 @@ export default function ApplicantDashboard() {
     }
 
     try {
-      const result = await profileApi.addSkill({
-        skill_id: selectedSkill.id,
-        level: newSkill.level,
+      const result = await graphqlMutation<any>(ADD_SKILL, {
+        input: { skillId: selectedSkill.id, level: newSkill.level }
       });
 
       setSkills([
         ...skills,
         {
-          id: result.skill.id,
-          skill_name: result.skill.skill_name,
-          level: result.skill.level,
+          id: result.addSkill.skill.id,
+          skill_name: result.addSkill.skill.skillName,
+          level: result.addSkill.skill.level,
         },
       ]);
 
@@ -233,7 +244,7 @@ export default function ApplicantDashboard() {
 
   const handleRemoveSkill = async (id: number) => {
     try {
-      await profileApi.deleteSkill(id);
+      await graphqlMutation<any>(DELETE_SKILL, { userSkillId: id });
       setSkills(skills.filter((s) => s.id !== id));
     } catch (err) {
       setSkillError(err instanceof Error ? err.message : "Gagal menghapus skill");
@@ -264,25 +275,23 @@ export default function ApplicantDashboard() {
     }
 
     try {
-      const result = await profileApi.addProject({
-        project_name: newProject.nama,
-        description: newProject.deskripsi,
-        link: newProject.link,
-        skill_ids: selectedProjectSkillIds,
+      const result = await graphqlMutation<any>(ADD_PROJECT, {
+        input: {
+          projectName: newProject.nama,
+          description: newProject.deskripsi,
+          link: newProject.link || null,
+          skillIds: selectedProjectSkillIds,
+        }
       });
-
-      const selectedSkillNames = masterSkills
-        .filter((skill) => selectedProjectSkillIds.includes(skill.id))
-        .map((skill) => skill.skill_name);
 
       setProjects([
         ...projects,
         {
-          id: result.project?.id || Date.now(),
+          id: Date.now(),
           project_name: newProject.nama,
           description: newProject.deskripsi,
           link: newProject.link,
-          skills: selectedSkillNames,
+          skills: [],
         },
       ]);
 
@@ -296,7 +305,7 @@ export default function ApplicantDashboard() {
 
   const handleRemoveProject = async (id: number) => {
     try {
-      await profileApi.deleteProject(id);
+      await graphqlMutation<any>(DELETE_PROJECT, { projectId: id });
       setProjects(projects.filter((p) => p.id !== id));
     } catch (err) {
       setProjectError(err instanceof Error ? err.message : "Gagal menghapus project");
@@ -322,16 +331,19 @@ export default function ApplicantDashboard() {
     }
 
     try {
-      const result = await profileApi.addCertificate({
-        certificate_name: newCertificate.nama,
-        issuer: newCertificate.penerbit,
-        issue_date: newCertificate.tanggalTerbit,
+      const result = await graphqlMutation<any>(ADD_CERTIFICATE, {
+        input: {
+          certificateName: newCertificate.nama,
+          issuer: newCertificate.penerbit,
+          issueDate: newCertificate.tanggalTerbit,
+          skillId: null,
+        }
       });
 
       setCertificates([
         ...certificates,
         {
-          id: result.certificate?.id || Date.now(),
+          id: Date.now(),
           certificate_name: newCertificate.nama,
           issuer: newCertificate.penerbit,
           issue_date: newCertificate.tanggalTerbit,
@@ -346,7 +358,7 @@ export default function ApplicantDashboard() {
 
   const handleRemoveCertificate = async (id: number) => {
     try {
-      await profileApi.deleteCertificate(id);
+      await graphqlMutation<any>(DELETE_CERTIFICATE, { certificateId: id });
       setCertificates(certificates.filter((c) => c.id !== id));
     } catch (err) {
       setCertificateError(err instanceof Error ? err.message : "Gagal menghapus sertifikat");
@@ -374,7 +386,19 @@ export default function ApplicantDashboard() {
 
     try {
       setUploadingCv(true);
-      const result = await profileApi.uploadCv(cvFile);
+      // Note: CV upload via GraphQL multipart not implemented yet
+      // Using REST endpoint directly for file uploads
+      const formData = new FormData();
+      formData.append("file", cvFile);
+      const token = sessionStorage.getItem("kerjole_token");
+      const API_URL = import.meta.env.VITE_API_URL || "https://kerjo-le-platform-kmtdzqcpl-evanhauzal-6126s-projects.vercel.app";
+      const res = await fetch(`${API_URL}/profile/cv`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const result = await res.json();
       setCvData({
         file_path: result.file_path,
         uploaded_at: new Date().toISOString()
@@ -484,15 +508,15 @@ export default function ApplicantDashboard() {
                     applications.map((app) => (
                       <div key={app.id} className="flex items-center gap-4 p-4 rounded-2xl border border-border hover:border-[#FF6B6B]">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-base truncate">{app.job_title}</h3>
-                          <p className="text-sm text-muted-foreground truncate">{app.company_name}</p>
+                          <h3 className="font-semibold text-base truncate">{app.jobTitle}</h3>
+                          <p className="text-sm text-muted-foreground truncate">{app.companyName}</p>
                         </div>
                         <div className="text-right">
                           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(app.status)}`}>
                             {getStatusIcon(app.status)}
                             {getStatusLabel(app.status)}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-2">{formatDate(app.applied_at)}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{formatDate(app.appliedAt)}</p>
                         </div>
                       </div>
                     ))
@@ -523,23 +547,23 @@ export default function ApplicantDashboard() {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h3 className="font-semibold text-base">{job.job_title}</h3>
-                            <p className="text-sm text-muted-foreground">{job.company_name}</p>
+                            <h3 className="font-semibold text-base">{job.jobTitle}</h3>
+                            <p className="text-sm text-muted-foreground">{job.companyName}</p>
                             <p className="text-xs text-muted-foreground mt-1">{job.location}</p>
                           </div>
 
                           <span className="px-3 py-1 bg-[#FF6B6B]/10 text-[#FF6B6B] rounded-full text-xs font-semibold">
-                            {job.job_type}
+                            {job.jobType}
                           </span>
                         </div>
 
                         <div className="flex flex-wrap gap-2 mt-4">
-                          {job.required_skills?.slice(0, 3).map((skill) => (
+                          {job.requiredSkills?.slice(0, 3).map((skill: any) => (
                             <span
                               key={skill.id}
                               className="px-3 py-1 rounded-full bg-gray-100 text-xs"
                             >
-                              {skill.skill_name}
+                              {skill.skillName}
                             </span>
                           ))}
                         </div>
@@ -613,29 +637,29 @@ export default function ApplicantDashboard() {
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
                         {masterSkills
                           .filter(
-                            (ms) =>
-                              ms.skill_name.toLowerCase().includes(skillSearch.toLowerCase()) &&
-                              !skills.some((s) => s.skill_name.toLowerCase() === ms.skill_name.toLowerCase())
+                            (ms: any) =>
+                              ms.skillName.toLowerCase().includes(skillSearch.toLowerCase()) &&
+                              !skills.some((s) => s.skillName.toLowerCase() === ms.skillName.toLowerCase())
                           )
-                          .map((ms) => (
+                          .map((ms: any) => (
                             <button
                               key={ms.id}
                               type="button"
                               onMouseDown={(e) => {
                                 e.preventDefault();
-                                setNewSkill({ ...newSkill, nama: ms.skill_name });
+                                setNewSkill({ ...newSkill, nama: ms.skillName });
                                 setSkillSearch("");
                                 setShowSkillDropdown(false);
                               }}
                               className="w-full text-left px-4 py-2.5 text-sm hover:bg-[#FF6B6B]/5 transition-colors"
                             >
-                              {ms.skill_name}
+                              {ms.skillName}
                             </button>
                           ))}
                         {masterSkills.filter(
-                          (ms) =>
-                            ms.skill_name.toLowerCase().includes(skillSearch.toLowerCase()) &&
-                            !skills.some((s) => s.skill_name.toLowerCase() === ms.skill_name.toLowerCase())
+                          (ms: any) =>
+                            ms.skillName.toLowerCase().includes(skillSearch.toLowerCase()) &&
+                            !skills.some((s) => s.skillName.toLowerCase() === ms.skillName.toLowerCase())
                         ).length === 0 && (
                             <p className="px-4 py-3 text-sm text-muted-foreground text-center">Tidak ada skill ditemukan</p>
                           )}
@@ -677,7 +701,7 @@ export default function ApplicantDashboard() {
                   {projects.map((project) => (
                     <div key={project.id} className="p-6 border border-border rounded-2xl hover:border-[#FF6B6B]">
                       <div className="flex items-start justify-between gap-4 mb-3">
-                        <h4 className="font-semibold">{project.project_name}</h4>
+                        <h4 className="font-semibold">{project.projectName}</h4>
                         <button onClick={() => handleRemoveProject(project.id)} className="p-2 hover:bg-red-100 rounded-lg text-[#FF6B6B]">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -760,11 +784,11 @@ export default function ApplicantDashboard() {
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
                         {masterSkills
                           .filter(
-                            (skill) =>
-                              skill.skill_name.toLowerCase().includes(projectSkillSearch.toLowerCase()) &&
+                            (skill: any) =>
+                              skill.skillName.toLowerCase().includes(projectSkillSearch.toLowerCase()) &&
                               !selectedProjectSkillIds.includes(skill.id)
                           )
-                          .map((skill) => (
+                          .map((skill: any) => (
                             <button
                               key={skill.id}
                               type="button"
@@ -781,7 +805,7 @@ export default function ApplicantDashboard() {
                               }}
                               className="w-full text-left px-4 py-3 hover:bg-[#FF6B6B]/5"
                             >
-                              {skill.skill_name}
+                              {skill.skillName}
                             </button>
                           ))}
                       </div>
@@ -790,12 +814,12 @@ export default function ApplicantDashboard() {
 
                   <div className="flex flex-wrap gap-2">
                     {selectedProjectSkillIds.map((skillId) => {
-                      const skill = masterSkills.find((item) => item.id === skillId);
+                      const skill = masterSkills.find((item: any) => item.id === skillId);
                       if (!skill) return null;
 
                       return (
                         <Badge key={skill.id} className="bg-[#FF6B6B]/10 text-[#FF6B6B]">
-                          {skill.skill_name}
+                          {skill.skillName}
                           <button
                             type="button"
                             onClick={() => setSelectedProjectSkillIds(selectedProjectSkillIds.filter((id) => id !== skill.id))}
@@ -831,14 +855,14 @@ export default function ApplicantDashboard() {
                         </button>
                       </div>
 
-                      <h4 className="font-semibold mb-2">{cert.certificate_name}</h4>
+                      <h4 className="font-semibold mb-2">{cert.certificateName}</h4>
                       <p className="text-sm text-muted-foreground flex items-center gap-2">
                         <Building className="w-4 h-4" />
                         {cert.issuer}
                       </p>
                       <p className="text-sm text-muted-foreground flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        {formatDate(cert.issue_date)}
+                        {formatDate(cert.issueDate)}
                       </p>
                     </div>
                   ))}
@@ -903,9 +927,9 @@ export default function ApplicantDashboard() {
                         <p className="text-sm text-muted-foreground mt-1">
                           Terakhir diunggah: {formatDate(cvData.uploaded_at)}
                         </p>
-                        <a 
-                          href={`${API_URL}${cvData.file_path}`} 
-                          target="_blank" 
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}${cvData.file_path}`}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-[var(--coral)] text-sm font-semibold hover:underline inline-block mt-2"
                         >

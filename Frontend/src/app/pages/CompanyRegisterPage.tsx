@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Building2, Mail, Lock, MapPin, FileText, Upload } from "lucide-react";
-import { authApi } from "../services/api";
+import { REGISTER_COMPANY, graphqlMutation } from "../services/graphql";
+import type { RegisterCompanyResponse } from "../services/graphql";
 
 export default function CompanyRegisterPage() {
   const navigate = useNavigate();
@@ -22,12 +23,14 @@ export default function CompanyRegisterPage() {
     setLoading(true);
 
     try {
-      await authApi.registerCompany({
-        company_name: formData.namaPerusahaan,
-        email: formData.email,
-        password: formData.password,
-        address: formData.alamat,
-        description: formData.deskripsi,
+      await graphqlMutation<RegisterCompanyResponse>(REGISTER_COMPANY, {
+        input: {
+          companyName: formData.namaPerusahaan,
+          email: formData.email,
+          password: formData.password,
+          address: formData.alamat,
+          description: formData.deskripsi,
+        }
       });
 
       navigate("/login");

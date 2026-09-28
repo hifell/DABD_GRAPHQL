@@ -3,13 +3,14 @@ import { Link, useNavigate } from "react-router";
 import { Search, TrendingUp, Briefcase, Users, Building2 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Job, jobsApi } from "../services/api";
+import { GET_JOBS, graphqlRequest } from "../services/graphql";
+import type { JobType, GetJobsResponse } from "../services/graphql";
 
 export default function LandingPage() {
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
+  const [featuredJobs, setFeaturedJobs] = useState<JobType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,8 +27,8 @@ export default function LandingPage() {
       setLoading(true);
       setError("");
 
-      const jobs = await jobsApi.getJobs();
-      setFeaturedJobs(jobs.slice(0, 3));
+      const result = await graphqlRequest<{ jobs: JobType[] }>(GET_JOBS, { limit: 3 });
+      setFeaturedJobs(result.jobs);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat lowongan");
       setFeaturedJobs([]);
@@ -198,14 +199,14 @@ export default function LandingPage() {
                     </div>
 
                     <span className="px-3 py-1 bg-[var(--yellow-light)] text-[var(--coral)] rounded-full text-sm font-medium">
-                      {job.job_type}
+                      {job.jobType}
                     </span>
                   </div>
 
-                  <h3 className="font-semibold text-lg mb-2">{job.job_title}</h3>
+                  <h3 className="font-semibold text-lg mb-2">{job.jobTitle}</h3>
 
                   <p className="text-muted-foreground text-sm mb-2">
-                    {job.company_name}
+                    {job.companyName}
                   </p>
 
                   <p className="text-muted-foreground text-sm mb-3">
@@ -213,18 +214,18 @@ export default function LandingPage() {
                   </p>
 
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {job.required_skills?.slice(0, 3).map((skill) => (
+                    {job.requiredSkills?.slice(0, 3).map((skill) => (
                       <span
                         key={skill.id}
                         className="px-3 py-1 rounded-full bg-gray-100 text-xs"
                       >
-                        {skill.skill_name} L{skill.minimum_level}
+                        {skill.skillName} L{skill.minimumLevel}
                       </span>
                     ))}
                   </div>
 
                   <p className="text-[var(--coral)] font-semibold">
-                    Gaji: {formatSalary(job.salary_min, job.salary_max)}
+                    Gaji: {formatSalary(job.salaryMin, job.salaryMax)}
                   </p>
                 </Link>
               ))

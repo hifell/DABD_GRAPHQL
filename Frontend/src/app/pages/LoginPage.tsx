@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Mail, Lock, User } from "lucide-react";
-import { authApi, getDashboardPath } from "../services/api";
+import { LOGIN, setAuth, getDashboardPath, graphqlMutation } from "../services/graphql";
+import type { LoginResponse } from "../services/graphql";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -15,10 +16,12 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const result = await authApi.login({ email, password });
-      sessionStorage.setItem("kerjole_token", result.access_token);
-      sessionStorage.setItem("kerjole_role", result.role);
-      navigate(getDashboardPath(result.role), { replace: true });
+      const result = await graphqlMutation<LoginResponse>(LOGIN, {
+        input: { email, password }
+      });
+      const { accessToken, role } = result.login;
+      setAuth(accessToken, role);
+      navigate(getDashboardPath(role), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login gagal");
     } finally {

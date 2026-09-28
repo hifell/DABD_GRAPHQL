@@ -3,19 +3,22 @@ import { Link, useNavigate, useParams } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { ArrowLeft, Building, MapPin } from "lucide-react";
-import { applicationsApi, getDashboardPath, getToken, Job, jobsApi } from "../services/api";
+import { GET_JOB, APPLY_JOB, graphqlRequest, graphqlMutation, getDashboardPath, getToken } from "../services/graphql";
 
 export default function JobDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [job, setJob] = useState<Job | null>(null);
+  const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!id) return;
-    jobsApi.getJobById(id).then(setJob).catch(err => setError(err.message)).finally(() => setLoading(false));
+    graphqlRequest<any>(GET_JOB, { id: parseInt(id) })
+      .then(res => setJob(res.job))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
   }, [id]);
 
   const apply = async () => {
@@ -26,8 +29,8 @@ export default function JobDetailPage() {
     setError("");
     setMessage("");
     try {
-      const res = await applicationsApi.applyJob(id!);
-      setMessage(`${res.message}. Matching score kamu: ${Math.round(res.matching_score)}%`);
+      const res = await graphqlMutation<any>(APPLY_JOB, { jobId: parseInt(id!) });
+      setMessage(`${res.applyJob.message}. Matching score kamu: ${Math.round(res.applyJob.matchingScore)}%`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal melamar");
     }
@@ -45,8 +48,8 @@ export default function JobDetailPage() {
           <div className="bg-white rounded-3xl p-8 border">
             <div className="flex flex-col md:flex-row md:justify-between gap-6">
               <div>
-                <h1 className="text-4xl font-bold mb-3">{job.job_title}</h1>
-                <p className="flex items-center gap-2 text-muted-foreground mb-2"><Building className="w-4 h-4" /> {job.company_name}</p>
+                <h1 className="text-4xl font-bold mb-3">{job.jobTitle}</h1>
+                <p className="flex items-center gap-2 text-muted-foreground mb-2"><Building className="w-4 h-4" /> {job.companyName}</p>
                 <p className="flex items-center gap-2 text-muted-foreground"><MapPin className="w-4 h-4" /> {job.location}</p>
               </div>
               <button onClick={apply} className="self-start px-8 py-4 bg-[var(--coral)] text-white rounded-2xl font-semibold hover:bg-[var(--coral-light)]">Lamar Sekarang</button>
@@ -57,13 +60,13 @@ export default function JobDetailPage() {
 
           <div className="grid lg:grid-cols-[2fr_1fr] gap-6">
             <div className="bg-white rounded-3xl p-8 border space-y-6">
-              <section><h2 className="text-2xl font-bold mb-3">Deskripsi Pekerjaan</h2><p className="whitespace-pre-line text-muted-foreground leading-7">{job.job_description}</p></section>
-              <section><h2 className="text-2xl font-bold mb-3">Kualifikasi</h2><p className="whitespace-pre-line text-muted-foreground leading-7">{job.job_qualification}</p></section>
+              <section><h2 className="text-2xl font-bold mb-3">Deskripsi Pekerjaan</h2><p className="whitespace-pre-line text-muted-foreground leading-7">{job.jobDescription}</p></section>
+              <section><h2 className="text-2xl font-bold mb-3">Kualifikasi</h2><p className="whitespace-pre-line text-muted-foreground leading-7">{job.jobQualification}</p></section>
             </div>
             <aside className="bg-white rounded-3xl p-8 border h-fit">
               <h2 className="text-xl font-bold mb-4">Skill Dibutuhkan</h2>
               <div className="space-y-3">
-                {job.required_skills.map(skill => <div key={skill.id} className="p-3 rounded-2xl bg-gray-50 border"><p className="font-semibold">{skill.skill_name}</p><p className="text-sm text-muted-foreground">Minimum level {skill.minimum_level}/5</p></div>)}
+                {job.requiredSkills.map((skill: any) => <div key={skill.id} className="p-3 rounded-2xl bg-gray-50 border"><p className="font-semibold">{skill.skillName}</p><p className="text-sm text-muted-foreground">Minimum level {skill.minimumLevel}/5</p></div>)}
               </div>
               <button onClick={() => navigate(getDashboardPath())} className="w-full mt-6 px-4 py-3 border rounded-2xl font-semibold hover:border-[var(--coral)]">Lihat Dashboard Saya</button>
             </aside>

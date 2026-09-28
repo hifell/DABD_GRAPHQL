@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Application, applicationsApi } from "../services/api";
+import { GET_CANDIDATES, UPDATE_APPLICATION_STATUS, graphqlRequest, graphqlMutation } from "../services/graphql";
 
 type SelectionStatus = "accepted" | "rejected";
 
 export default function ApplicantsListPage() {
   const { id } = useParams();
 
-  const [candidates, setCandidates] = useState<Application[]>([]);
+  const [candidates, setCandidates] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
@@ -18,7 +18,8 @@ export default function ApplicantsListPage() {
 
     try {
       setError("");
-      setCandidates(await applicationsApi.getCandidates(id));
+      const res = await graphqlRequest<any>(GET_CANDIDATES, { jobId: parseInt(id) });
+      setCandidates(res.candidates || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat kandidat");
     }
@@ -33,7 +34,7 @@ export default function ApplicantsListPage() {
       setError("");
       setUpdatingId(appId);
 
-      await applicationsApi.updateStatus(appId, status);
+      await graphqlMutation<any>(UPDATE_APPLICATION_STATUS, { applicationId: appId, status });
 
       alert(
         status === "accepted"
@@ -102,7 +103,7 @@ export default function ApplicantsListPage() {
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 flex-wrap">
-                        <h2 className="text-xl font-bold">{c.applicant_name}</h2>
+                        <h2 className="text-xl font-bold">{c.applicantName}</h2>
 
                         <span
                           className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusClass(
@@ -113,19 +114,19 @@ export default function ApplicantsListPage() {
                         </span>
                       </div>
 
-                      <p className="text-muted-foreground">{c.applicant_email}</p>
+                      <p className="text-muted-foreground">{c.applicantEmail}</p>
 
                       <p className="mt-3">
-                        Score: <b>{Math.round(c.matching_score)}%</b>
+                        Score: <b>{Math.round(c.matchingScore)}%</b>
                       </p>
 
                       <div className="flex flex-wrap gap-2 mt-3">
-                        {c.skills?.map((s, i) => (
+                        {c.skills?.map((s: any, i: number) => (
                           <span
                             key={i}
                             className="px-3 py-1 rounded-full bg-gray-100 text-sm"
                           >
-                            {s.skill_name} L{s.level}
+                            {s.skillName} L{s.level}
                           </span>
                         ))}
                       </div>

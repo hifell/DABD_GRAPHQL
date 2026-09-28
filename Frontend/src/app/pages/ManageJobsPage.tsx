@@ -3,16 +3,16 @@ import { Link } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Eye, Plus, XCircle } from "lucide-react";
-import { Job, jobsApi } from "../services/api";
+import { GET_MY_COMPANY_JOBS, CLOSE_JOB, graphqlRequest, graphqlMutation } from "../services/graphql";
 
 export default function ManageJobsPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [error, setError] = useState("");
 
   const load = async () => {
     try {
-      const res = await jobsApi.getMyCompanyJobs();
-      setJobs(res.jobs);
+      const res = await graphqlRequest<any>(GET_MY_COMPANY_JOBS);
+      setJobs(res.myCompanyJobs.jobs);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat lowongan");
     }
@@ -22,7 +22,7 @@ export default function ManageJobsPage() {
 
   const closeJob = async (id: number) => {
     try {
-      await jobsApi.closeJob(id);
+      await graphqlMutation<any>(CLOSE_JOB, { jobId: id });
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menutup lowongan");
@@ -45,7 +45,7 @@ export default function ManageJobsPage() {
               <tbody>
                 {jobs.map(job => (
                   <tr key={job.id} className="border-b last:border-0">
-                    <td className="py-4 font-semibold">{job.job_title}</td><td>{job.location}</td><td>{job.status}</td><td>{job.is_validated ? "Valid" : "Pending"}</td><td>{job.total_applicants}</td>
+                    <td className="py-4 font-semibold">{job.jobTitle}</td><td>{job.location}</td><td>{job.status}</td><td>{job.isValidated ? "Valid" : "Pending"}</td><td>{job.totalApplicants}</td>
                     <td className="flex gap-3 py-4">
                       <Link to={`/perusahaan/lowongan/${job.id}/pelamar`} className="text-[var(--coral)] flex gap-1 items-center"><Eye className="w-4 h-4" /> Kandidat</Link>
                       {job.status !== "closed" && <button onClick={() => closeJob(job.id)} className="text-red-600 flex gap-1 items-center"><XCircle className="w-4 h-4" /> Tutup</button>}

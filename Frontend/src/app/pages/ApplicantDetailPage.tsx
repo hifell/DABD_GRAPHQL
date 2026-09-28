@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { applicationsApi, API_URL } from "../services/api";
+import { GET_APPLICATION_DETAIL, UPDATE_APPLICATION_STATUS, graphqlRequest, graphqlMutation } from "../services/graphql";
 import { User, Mail, FileText, CheckCircle2, XCircle } from "lucide-react";
 
 export default function ApplicantDetailPage() {
@@ -21,8 +21,8 @@ export default function ApplicantDetailPage() {
     const loadApplicant = async () => {
       try {
         setLoading(true);
-        const data = await applicationsApi.getApplicationDetail(Number(id));
-        setApplicant(data);
+        const res = await graphqlRequest<any>(GET_APPLICATION_DETAIL, { applicationId: parseInt(id) });
+        setApplicant(res.applicationDetail);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Gagal memuat data pelamar");
       } finally {
@@ -34,8 +34,8 @@ export default function ApplicantDetailPage() {
   }, [id]);
 
   const backToCandidates = () => {
-    if (applicant?.job_id) {
-      navigate(`/perusahaan/lowongan/${applicant.job_id}/pelamar`);
+    if (applicant?.jobId) {
+      navigate(`/perusahaan/lowongan/${applicant.jobId}/pelamar`);
     } else {
       navigate("/perusahaan/dashboard");
     }
@@ -50,7 +50,7 @@ export default function ApplicantDetailPage() {
     if (!applicant || !actionType) return;
 
     try {
-      await applicationsApi.updateStatus(applicant.id, actionType);
+      await graphqlMutation<any>(UPDATE_APPLICATION_STATUS, { applicationId: applicant.id, status: actionType });
       setShowModal(false);
       backToCandidates();
     } catch (err) {
@@ -109,11 +109,11 @@ export default function ApplicantDetailPage() {
               </div>
 
               <div className="flex-1">
-                <h2 className="text-3xl font-bold mb-2">{applicant.applicant_name}</h2>
+                <h2 className="text-3xl font-bold mb-2">{applicant.applicantName}</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Mail className="w-5 h-5 text-[var(--coral)]" />
-                    {applicant.applicant_email}
+                    {applicant.applicantEmail}
                   </div>
                 </div>
               </div>
@@ -148,7 +148,7 @@ export default function ApplicantDetailPage() {
                         key={idx}
                         className="px-4 py-2 bg-[var(--yellow-light)] text-[var(--coral)] rounded-xl text-sm font-medium"
                       >
-                        {skill.skill_name} L{skill.level}
+                        {skill.skillName} L{skill.level}
                       </span>
                     ))
                   ) : (
@@ -167,7 +167,7 @@ export default function ApplicantDetailPage() {
                   {applicant.projects?.length > 0 ? (
                     applicant.projects.map((exp: any, idx: number) => (
                       <div key={idx} className="border-l-2 border-[var(--coral)] pl-4">
-                        <h4 className="font-semibold">{exp.project_name}</h4>
+                        <h4 className="font-semibold">{exp.projectName}</h4>
                         <p className="text-sm text-muted-foreground">{exp.description}</p>
                         <p className="text-xs text-muted-foreground">{exp.link || "N/A"}</p>
                       </div>
@@ -188,9 +188,9 @@ export default function ApplicantDetailPage() {
                 {applicant.certificates?.length > 0 ? (
                   applicant.certificates.map((cert: any, idx: number) => (
                     <div key={idx} className="border-l-2 border-[var(--coral)] pl-4">
-                      <h4 className="font-semibold">{cert.certificate_name}</h4>
+                      <h4 className="font-semibold">{cert.certificateName}</h4>
                       <p className="text-sm text-muted-foreground">{cert.issuer}</p>
-                      <p className="text-xs text-muted-foreground">{cert.issue_date} {cert.skill_name && `• ${cert.skill_name}`}</p>
+                      <p className="text-xs text-muted-foreground">{cert.issueDate} {cert.skillName && `• ${cert.skillName}`}</p>
                     </div>
                   ))
                 ) : (
@@ -205,16 +205,16 @@ export default function ApplicantDetailPage() {
                 Curriculum Vitae (CV)
               </h3>
               <div className="bg-gray-50 p-4 rounded-2xl border border-border">
-                {applicant.cv_path ? (
+                {applicant.cvPath ? (
                   <div className="flex items-center gap-4">
                     <div className="p-3 bg-white rounded-xl shadow-sm">
                       <FileText className="w-8 h-8 text-[var(--coral)]" />
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-gray-800">Dokumen CV Pelamar</p>
-                      <a 
-                        href={`${API_URL}${applicant.cv_path}`} 
-                        target="_blank" 
+                      <a
+                        href={`${import.meta.env.VITE_API_URL}${applicant.cvPath}`}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-[var(--coral)] text-sm hover:underline font-medium inline-block mt-1"
                       >
@@ -223,7 +223,7 @@ export default function ApplicantDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-red-500 font-medium">{applicant.cv_message || "Pelamar belum mengupload CV"}</p>
+                  <p className="text-red-500 font-medium">{applicant.cvMessage || "Pelamar belum mengupload CV"}</p>
                 )}
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function ApplicantDetailPage() {
             <div className="border-t border-border pt-6">
               <h3 className="text-xl font-semibold mb-4">Matching Score</h3>
               <div className="text-2xl font-bold text-[var(--coral)]">
-                {Math.round(applicant.matching_score)}%
+                {Math.round(applicant.matchingScore)}%
               </div>
             </div>
           </div>
